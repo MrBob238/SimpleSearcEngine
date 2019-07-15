@@ -4,6 +4,111 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 
+class SelectionContext{
+
+    private SearchStrategy strategy;
+
+    public void setStrategy(SearchStrategy strategy) {
+        this.strategy = strategy;
+    }
+
+    public void searchByStrategy(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap,
+                                 String strForSearch) {
+        this.strategy.search(dataArray, databaseMap, strForSearch);
+
+    }
+}
+
+interface SearchStrategy{
+
+    void search(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap,
+                String strForSearch);
+}
+
+class searchByAllStrategy implements SearchStrategy{
+
+    @Override
+    public void search(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap,
+                       String strForSearch) {
+        String[] queryArray = strForSearch.split(" ");
+        LinkedHashSet<Integer> resultOfSearchIndexes = new LinkedHashSet<>();
+        LinkedHashSet<Integer> tempList = new LinkedHashSet<>(); //sum of lists with num of words from query.
+        for (int i = 0; i < queryArray.length; i++) {
+            if (databaseMap.containsKey(queryArray[i])) {
+                tempList.addAll(databaseMap.get(queryArray[i]));
+            }
+        }
+        for (Integer numFromTempList : tempList) {
+            boolean toADD = true;
+            for (int i = 0; i < queryArray.length; i++) {
+                if (!databaseMap.get(queryArray[i]).contains(numFromTempList)) {
+                    toADD = false;
+                    break;
+                }
+            }
+            if (toADD) {
+                resultOfSearchIndexes.add(numFromTempList);
+            }
+        }
+        int numOfMatching = resultOfSearchIndexes.size();
+        String message = numOfMatching != 0 ? numOfMatching + " persons found: " : "No matching people found.";
+        System.out.println(message);
+        for (int num : resultOfSearchIndexes) {
+            System.out.println(dataArray.get(num));
+        }
+    }
+}
+
+class SearchByANYStrategy implements SearchStrategy{
+
+    @Override
+    public void search(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap,
+                       String strForSearch) {
+        String[] queryArray = strForSearch.split(" ");
+        Set<Integer> resultOfSearchIndexes = new LinkedHashSet<>();
+        for (Map.Entry<String, LinkedHashSet<Integer>> pair : databaseMap.entrySet()) {
+            for (String word : queryArray) {
+                if (pair.getKey().contains(word.toLowerCase().trim())) {
+                    for (Integer number : pair.getValue()) {
+                        resultOfSearchIndexes.add(number);
+                    }
+                }
+            }
+        }
+        int numOfMatching = resultOfSearchIndexes.size();
+        String message = numOfMatching != 0 ? numOfMatching + " persons found: " : "No matching people found.";
+        System.out.println(message);
+        for (int num : resultOfSearchIndexes) {
+            System.out.println(dataArray.get(num));
+        }
+    }
+}
+
+class SearchByNONEStrategy implements SearchStrategy{
+
+    @Override
+    public void search(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap,
+                       String strForSearch) {
+        String[] queryArray = strForSearch.split(" ");
+        LinkedHashSet<Integer> tempList = new LinkedHashSet<>(); //sum of lists with num of words from query.
+        for (int i = 0; i < queryArray.length; i++) {
+            if (databaseMap.containsKey(queryArray[i])) {
+                tempList.addAll(databaseMap.get(queryArray[i]));
+            }
+        }
+        int numOfMatching = dataArray.size() - tempList.size();
+        String message = numOfMatching != 0 ? numOfMatching + " persons found: " : "No matching people found.";
+        System.out.println(message);
+        for (int i = 0; i < dataArray.size(); i++) {
+            if (tempList.contains(i)) {
+                continue;
+            } else {
+                System.out.println(dataArray.get(i));
+            }
+        }
+    }
+}
+
 public class Main {
     public static final String NAMES =
             "Kristofer Galley\n" +
@@ -57,72 +162,58 @@ public class Main {
                     "Erica Radford hisam@gmail.com\n" +
                     "Elyse Pauling";
     static String filePath;
-    static HashMap<String, ArrayList<Integer>> databaseMap;
+    static HashMap<String, LinkedHashSet<Integer>> databaseMap;
     static ArrayList<String> dataArray;
 
     public static void createDatabaseMap(){
         //createDatabaseArray();
-        ArrayList<Integer> indexes;
+        LinkedHashSet<Integer> indexes;
         int numberOfLine = 0;
         databaseMap = new HashMap<>();
         for (String line : dataArray) {
             for (String word : line.toLowerCase().split(" ")) {
-                indexes = databaseMap.get(word) == null ? new ArrayList<>() : databaseMap.get(word);
+                indexes = databaseMap.get(word) == null ? new LinkedHashSet<>() : databaseMap.get(word);
                 indexes.add(numberOfLine);
                 databaseMap.put(word,indexes);
             }
             numberOfLine++;
         }
     }
-
     public static void createDatabaseArray() {
         File file = new File(filePath);
         dataArray = new ArrayList<>();
         try (Scanner scanner = new Scanner(file)) {
-
             while (scanner.hasNextLine()) {
                 dataArray.add(scanner.nextLine());
             }
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
         }
-
-        /*
-        //Начало неправильного варианта.
-        for (String line : NAMES.split("\n")) {
-            dataArray.add(line);
-        }
-        //Конец неправильного варианта.
-
-         */
-
-
     }
-    public static void search(ArrayList<String> dataArray, String strForSearch) {
-        for (String line : dataArray) {
-            if (line.toLowerCase().contains(strForSearch.toLowerCase().trim())) {
-                System.out.println(line);
-            }
-        }
-        System.out.println();
-    }
-    public static void search(ArrayList<String> dataArray, HashMap<String, ArrayList<Integer>> databaseMap, String strForSearch) {
-        int numOfMatching = 0;
-        for (Map.Entry<String, ArrayList<Integer>> pair : databaseMap.entrySet()) {
-            if (pair.getKey().contains(strForSearch.toLowerCase().trim())) {
-                numOfMatching += pair.getValue().size();
-            }
-        }
-        String message = numOfMatching != 0 ? numOfMatching + " persons found: " : "No matching people found.";
-        System.out.println(message);
-        for (Map.Entry<String, ArrayList<Integer>> pair : databaseMap.entrySet()) {
+
+    /**
+     * С уровня 5 (устаревший). Выводит строки, в которых есть совпадение с поисковым запросом (даже фрагмент слова).
+     * Можно этот метод использовать как default в интерфейсе SearchStrategy.
+     * @param dataArray
+     * @param databaseMap
+     * @param strForSearch
+     */
+    public static void search(ArrayList<String> dataArray, HashMap<String, LinkedHashSet<Integer>> databaseMap, String strForSearch) {
+        Set<Integer> resultOfSearchIndexes = new LinkedHashSet<>();
+        for (Map.Entry<String, LinkedHashSet<Integer>> pair : databaseMap.entrySet()) {
             if (pair.getKey().contains(strForSearch.toLowerCase().trim())) {
                 for (Integer number : pair.getValue()) {
-                    System.out.println(dataArray.get(number));
+                    resultOfSearchIndexes.add(number);
                 }
             }
         }
-        System.out.println();
+        int numOfMatching = resultOfSearchIndexes.size();
+        String message = numOfMatching != 0 ? numOfMatching + " persons found: " : "No matching people found.";
+        System.out.println(message);
+
+        for (int num : resultOfSearchIndexes) {
+            System.out.println(dataArray.get(num));
+        }
     }
 
     public static void menu() {
@@ -131,7 +222,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         boolean exit = false;
         while (!exit) {
-            System.out.println("=== Menu === \n" +
+            System.out.println("\n === Menu === \n" +
                     "1. Find a person \n" +
                     "2. Print all people \n" +
                     "0. Exit");
@@ -148,9 +239,29 @@ public class Main {
             switch (choice) {
                 case 1:
                     System.out.println();
+                    // Начало уровня 6
+                    SelectionContext searcher = new SelectionContext();
+                    System.out.println("Select a matching strategy: ALL, ANY, NONE");
+                    String strStrategy = scanner.nextLine();
+                    switch (strStrategy) {
+                        case "ANY" :
+                            searcher.setStrategy(new SearchByANYStrategy());
+                            break;
+                        case "ALL" :
+                            searcher.setStrategy(new searchByAllStrategy());
+                            break;
+                        case "NONE" :
+                            searcher.setStrategy(new SearchByNONEStrategy());
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Неверная стратегия.");
+                            //System.out.println("No such strategy, press correct strategy.");
+                    }
+                    //Конец уровня 6.
+                    //search(dataArray, databaseMap, strForSearch); //Метод уровня 5.
                     System.out.println("Enter a name or email to search all suitable people.");
                     String strForSearch = scanner.nextLine();
-                    search(dataArray, databaseMap, strForSearch);
+                    searcher.searchByStrategy(dataArray, databaseMap, strForSearch);
                     break;
                 case 2:
                     System.out.println();
@@ -158,7 +269,6 @@ public class Main {
                     for (String line : dataArray) {
                         System.out.println(line);
                     }
-                    //System.out.println();
                     break;
                 case 0:
                     System.out.println("Bye!");
@@ -169,11 +279,12 @@ public class Main {
 
             }
         }
+        scanner.close();
     }
 
     public static void main(String[] args) {
         filePath = args[1];
-        //System.out.println(NAMES);
+        //filePath = "C:\\Hyperskill\\dataset_stage5_tests.txt";
         menu();
 
 
